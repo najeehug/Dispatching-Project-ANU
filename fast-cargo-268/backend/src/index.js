@@ -41,7 +41,7 @@ app.get('/health', (_req, res) => res.json({ status: 'ok', service: 'FastCargo 2
 // ── Error handler ──────────────────────────────────────────────────────────
 app.use(errorHandler);
 
-app.listen(PORT, () => {
+app.listen(PORT, '0.0.0.0', () => {
   console.log(`FastCargo 268 API → http://localhost:${PORT}`);
 });
 
