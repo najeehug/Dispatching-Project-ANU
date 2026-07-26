@@ -8,15 +8,12 @@ router.use(authenticate, requireRole('DISPATCHER'));
 
 // GET /api/dispatch/dashboard
 router.get('/dashboard', async (_req, res) => {
-  const [byStatus, avgCustoms, driversActive] = await Promise.all([
+  const [byStatus, clearedPackages, driversActive] = await Promise.all([
     prisma.package.groupBy({ by: ['status'], _count: { id: true } }),
-    prisma.$queryRaw`
-      SELECT AVG(
-        EXTRACT(EPOCH FROM ("customsClearedAt" - "customsEntryAt")) / 3600
-      )::float AS avg_hours
-      FROM packages
-      WHERE "customsEntryAt" IS NOT NULL AND "customsClearedAt" IS NOT NULL
-    `,
+    prisma.package.findMany({
+      where: { customsEntryAt: { not: null }, customsClearedAt: { not: null } },
+      select: { customsEntryAt: true, customsClearedAt: true },
+    }),
     prisma.user.count({
       where: {
         role: 'DRIVER',
@@ -27,14 +24,19 @@ router.get('/dashboard', async (_req, res) => {
     }),
   ]);
 
+  // Calculate avg customs hours in JS
+  let avgCustomsHours = null;
+  if (clearedPackages.length > 0) {
+    const total = clearedPackages.reduce((sum, p) => {
+      return sum + (new Date(p.customsClearedAt) - new Date(p.customsEntryAt)) / 3600000;
+    }, 0);
+    avgCustomsHours = total / clearedPackages.length;
+  }
+
   const statusMap = {};
   byStatus.forEach(({ status, _count }) => { statusMap[status] = _count.id; });
 
-  res.json({
-    statusMap,
-    avgCustomsHours: avgCustoms[0]?.avg_hours ?? null,
-    driversActive,
-  });
+  res.json({ statusMap, avgCustomsHours, driversActive });
 });
 
 // PATCH /api/dispatch/packages/:id/customs-entry
