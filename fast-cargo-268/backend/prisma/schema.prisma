@@ -1,0 +1,139 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum Role {
+  CUSTOMER
+  DRIVER
+  DISPATCHER
+}
+
+enum PackageStatus {
+  PENDING_PIN
+  PIN_REQUESTED
+  PIN_SET
+  AT_CUSTOMS
+  CUSTOMS_CLEARED
+  ASSIGNED
+  OUT_FOR_DELIVERY
+  DELIVERED
+  FAILED_DELIVERY
+}
+
+enum NotificationType {
+  PIN_REQUEST
+  CUSTOMS_CLEARED
+  DRIVER_ASSIGNED
+  OUT_FOR_DELIVERY
+  DELIVERED
+}
+
+model User {
+  id           String   @id @default(uuid())
+  phone        String   @unique
+  email        String?  @unique
+  name         String
+  role         Role     @default(CUSTOMER)
+  passwordHash String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Driver live location (updated periodically by driver app)
+  driverLat       Float?
+  driverLng       Float?
+  driverLocationAt DateTime?
+
+  packages          Package[]           @relation("CustomerPackages")
+  driverAssignments PackageAssignment[]
+  dispatchActions   DispatchLog[]
+  notifications     Notification[]
+
+  @@map("users")
+}
+
+model Package {
+  id             String        @id @default(uuid())
+  trackingNumber String        @unique
+  status         PackageStatus @default(PENDING_PIN)
+  description    String?
+  weightKg       Float?
+  declaredValue  Float?
+
+  customerId String
+  customer   User   @relation("CustomerPackages", fields: [customerId], references: [id])
+
+  pinLatitude   Float?
+  pinLongitude  Float?
+  pinSetAt      DateTime?
+  deliveryNotes String?
+
+  customsEntryAt       DateTime?
+  customsClearedAt     DateTime?
+  customsOfficerName   String?
+  customsEntryLoggedBy String?
+  customsClearLoggedBy String?
+
+  assignedAt       DateTime?
+  deliveredAt      DateTime?
+  deliveryPhotoUrl String?
+  failureReason    String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  assignment    PackageAssignment?
+  dispatchLogs  DispatchLog[]
+  notifications Notification[]
+
+  @@map("packages")
+}
+
+model PackageAssignment {
+  id         String   @id @default(uuid())
+  packageId  String   @unique
+  package    Package  @relation(fields: [packageId], references: [id])
+  driverId   String
+  driver     User     @relation(fields: [driverId], references: [id])
+  assignedAt DateTime @default(now())
+  assignedBy String
+
+  driverLatAtDelivery Float?
+  driverLngAtDelivery Float?
+
+  @@map("package_assignments")
+}
+
+model DispatchLog {
+  id           String   @id @default(uuid())
+  packageId    String
+  package      Package  @relation(fields: [packageId], references: [id])
+  dispatcherId String
+  dispatcher   User     @relation(fields: [dispatcherId], references: [id])
+  action       String
+  metadata     Json?
+  createdAt    DateTime @default(now())
+
+  @@map("dispatch_logs")
+}
+
+model Notification {
+  id        String           @id @default(uuid())
+  userId    String
+  user      User             @relation(fields: [userId], references: [id])
+  packageId String?
+  package   Package?         @relation(fields: [packageId], references: [id])
+  type      NotificationType
+  channel   String
+  message   String
+  sentAt    DateTime         @default(now())
+  delivered Boolean          @default(false)
+  externalId String?
+
+  @@map("notifications")
+}

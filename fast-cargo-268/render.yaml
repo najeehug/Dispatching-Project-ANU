@@ -1,0 +1,27 @@
+# render.yaml — deploys the FastCargo 268 backend to Render (free tier)
+# Commit this file to your GitHub repo, then connect it in Render dashboard
+
+services:
+  - type: web
+    name: fast-cargo-268-api
+    runtime: node
+    rootDir: backend
+    buildCommand: npm install && npm run build
+    startCommand: npm run db:migrate && npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        sync: false       # Set this manually in Render dashboard
+      - key: DIRECT_URL
+        sync: false       # Set this manually in Render dashboard
+      - key: JWT_SECRET
+        generateValue: true
+      - key: FRONTEND_URL
+        sync: false       # Set to your Vercel URL after deploying frontend
+      - key: APP_BASE_URL
+        sync: false       # Same as FRONTEND_URL
+      - key: RESEND_API_KEY
+        sync: false       # Optional — set for email notifications
+      - key: FROM_EMAIL
+        sync: false       # Optional — your verified Resend sender email
